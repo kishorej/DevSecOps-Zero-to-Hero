@@ -32,20 +32,20 @@
 
 ---
 
-## Day 3: Secret Management & Infrastructure as Code (IaC) Security
-
-**Focus**: Preventing credential leaks and securing your Terraform/Bicep code.
+## Day 3: IaC Security
 
 ### Concepts:
-- **Secret Sprawl**: Why `.env` and hardcoded keys are a disaster
+- Best Practices
 - **IaC Scanning**: Catching misconfigured S3 buckets or open Security Groups before deployment
+- Secret Management with Vault
 
 ### Tool Spotlight:
-- TruffleHog (Secret Scanning)
-- Checkov or KICS (IaC Scanning)
+- Gitleaks
+- Checkov
+- Vault
 
 ### Hands-on Lab:
-- Scan a "leaky" Terraform repo
+- Scan a "less secure" Terraform repo
 - Implement HashiCorp Vault for dynamic secret injection
 
 ---
