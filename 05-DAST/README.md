@@ -242,79 +242,114 @@ kubectl get pods -n kube-system
 
 ---
 
-## Hands-On: Test Default Allow Behavior
+## Hands-On Setup: Backend and Frontend Pods
 
-Create two pods:
+We will simulate a real application:
 
-```
-kubectl run pod-a --image=busybox -n payments -- sleep 3600
-kubectl run pod-b --image=busybox -n payments -- sleep 3600
-```
+frontend → allowed to access backend
 
-Get pod IPs:
+other pods → should be blocked
 
-```
-kubectl get pods -n dev -o wide
-```
-
-Exec into pod-a:
+### Create backend pod:
 
 ```
-kubectl exec -it pod-a -n dev -- sh
+kubectl run backend \
+  --image=nginx \
+  --labels="app=my-app" \
+  -n payments
 ```
 
-Ping pod-b IP → should work.
+### Create frontend pod:
 
----
+```
+kubectl run frontend \
+  --image=busybox \
+  --labels="role=frontend" \
+  -n payments -- sleep 3600
+```
 
-## Hands-On: Default Deny Network Policy
+### Create an attacker pod:
+
+```
+kubectl run attacker \
+  --image=busybox \
+  -n payments -- sleep 3600
+```
+
+### Expose backend:
+
+```
+kubectl expose pod backend \
+  --port=80 \
+  --name=backend-svc \
+  -n payments
+```
+
+### Verify Default Behavior (No NetworkPolicy)
+
+Exec into attacker:
+
+```
+kubectl exec -it attacker -n payments -- sh
+```
+
+Try accessing backend:
+
+`wget -qO- backend-svc`
+
+This works, because Kubernetes allows all traffic by default.
+
+### Apply NetworkPolicy: Allow Specific Traffic Only
 
 ```
 kubectl apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: deny-all
-  namespace: dev
+  name: allow-specific-traffic
+  namespace: payments
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: my-app
   policyTypes:
   - Ingress
-EOF
-```
-
-Test again → ping should fail.
-
----
-
-## Hands-On: Allow Specific Pod Communication
-
-Label pod-b:
-
-```
-kubectl label pod pod-b app=backend -n dev
-```
-
-Allow traffic only from backend:
-
-```
-kubectl apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-backend
-  namespace: dev
-spec:
-  podSelector: {}
   ingress:
   - from:
     - podSelector:
         matchLabels:
-          app: backend
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 80
 EOF
 ```
 
-Verify communication.
+Now we restrict traffic so that:
+
+Only pods with role=frontend can access backend
+
+Only on TCP port 80
+
+### Verify NetworkPolicy Enforcement
+
+From frontend pod:
+
+```
+kubectl exec -it frontend -n payments -- sh
+wget -qO- backend-svc
+```
+
+This should work.
+
+From attacker pod:
+
+```
+kubectl exec -it attacker -n payments -- sh
+wget -qO- backend-svc
+```
+
+This should fail.
 
 ---
 
